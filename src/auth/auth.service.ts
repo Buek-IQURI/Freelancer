@@ -1,43 +1,187 @@
-import { Injectable } from '@nestjs/common';
-import { UserService } from 'src/user/user.service';
-import { JwtService } from '@nestjs/jwt'
+import {
+  BadRequestException,
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from 'src/user/dto/register.dto';
 
+import { LogInDto } from 'src/user/dto/login.dto';
 
+import { ConfigService } from '@nestjs/config';
+import { PasswordDto } from 'src/user/dto/password.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
+import { CloudinaryService } from 'src/middleware/cloudinary/cloudinary.service';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private userService: UserService,
-    private jwtService: JwtService
+    private jwtService: JwtService,
+    private prisma: PrismaService,
+    private configService: ConfigService,
+    private cloudinaryService: CloudinaryService
   ) {}
 
-  async validateUser(email: string , password: string) {
-    const user = await this.userService.findByEmail(email);
 
-    if(user && (await bcrypt.compare(password, user.password))) {
-      const result = user
-      return {
-        email: result.email,
-        userId: result.id
-      }
+  //NOTE - Register
+  async register(registerDto: RegisterDto, file: any) {
+    const {
+      username,
+      firstName,
+      email,
+      address,
+      password,
+      roles,
+      age,
+      lastName,
+    } = registerDto;
+    // console.log(registerDto);
+    // console.log(file);
+
+    const hashPassword = await bcrypt.hash(password, 10);
+
+    const findEmail = await this.prisma.user.findFirst({
+      where: { AND: [{ email, username }] },
+    });
+
+    if (file && findEmail) {
+      throw new BadRequestException('Email Or User Name Ready exist');
     }
 
-    return null;
+    const uploadResult = file ? await this.cloudinaryService.uploadImage(file) : null;
 
+
+    const user = await this.prisma.user.create({
+      data: {
+        username,
+        email,
+        password: hashPassword,
+      },
+    });
+
+    const profile = await this.prisma.profile.create({
+      data: {
+        userId: user.id,
+        firstName,
+        lastName,
+        avatar: uploadResult?.secure_url  ? uploadResult?.secure_url : undefined,
+        age,
+        roles,
+        address,
+        email,
+      },
+    });
+
+    return [{ user, profile }];
   }
 
-  async register(registerDto: RegisterDto) {
+  //NOTE - Login
+  async login(loginDto: LogInDto) {
+    const { username, password, email } = loginDto;
+    let data: any;
+
+    data = await this.prisma.user.findFirst({
+      where:{ 
+        OR: [
+          { username }, 
+          { email }
+        ]
+      }
+    });
+    // if(!data){  data = await this.userModel.findOne({ email });}
+
+    if (!data) {
+      console.error('Invalid user:', data);
+      throw new BadRequestException('Invalid user');
+    }
+
+    const isMatch = await bcrypt.compare(password, data.password);
+
+    if (isMatch === false) {
+      throw new UnauthorizedException('Invalid credentials');
+    }
+
+    const payload = {
+      email: data.email,
+      sub: data.id,
+    };
+
+    const access_token = await this.jwtService.signAsync(payload);
+
     
+    const refresh_token = await this.jwtService.signAsync(payload, {
+      expiresIn: process.env.EXPIRES,
+      secret: process.env.REFRESH_TOKEN_SECRET,
+    });
+
+    return { access_token, refresh_token };
   }
 
+  //NOTE - Refresh Token
+  async refreshAccessToken(refreshToken: any) {
+    const refresh = refreshToken.payload;
 
+    const payload = this.jwtService.verify(refresh, {
+      secret: this.configService.get('REFRESH_TOKEN_SECRET'),
+    });
 
-  async login(user: any){
-    const payload = { email: user.email, sub: user.userId };
+    const newAccessToken = await this.jwtService.signAsync({
+      email: payload.email,
+      sub: payload.sub,
+    });
+
+    const newRefreshToken = await this.jwtService.signAsync(
+      { email: payload.email, sub: payload.sub },
+      {
+        secret: this.configService.get('REFRESH_TOKEN_SECRET'),
+        expiresIn: '1d',
+      },
+    );
+
     return {
-      accessToken: this.jwtService.sign(payload),
+      newAccessToken,
+      newRefreshToken,
     };
   }
+
+
+  async ChangePassword(request:any, passwordDto: PasswordDto){
+    const {sub} = request.user;
+    const passChange = await this.prisma.user.findFirst({where:{id: sub}});
+
+    if(!passChange) {
+      console.error('Invalid user:', passChange);
+      throw new BadRequestException('Invalid user');
+    }
+
+    const comparePass = await bcrypt.compare(
+      passwordDto.oldPassword,
+      passChange.password,
+    )
+
+    if(!comparePass) {
+      throw new BadRequestException('Fail Change Password')
+    }
+
+
+    const password = await bcrypt.hash(passwordDto.newPassword, 10);
+    await this.prisma.user.update({
+      where: { id: sub },
+      data: {password}
+    })
+
+    throw new HttpException('Change Success', HttpStatus.ACCEPTED)
+  }
+
+
+
+
+
+
+
 }
+
+

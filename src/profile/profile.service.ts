@@ -1,26 +1,58 @@
-import { Injectable } from '@nestjs/common';
-import { CreateProfileDto } from './dto/create-profile.dto';
-import { UpdateProfileDto } from './dto/update-profile.dto';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import { PrismaClient } from '@prisma/client';
+import { UpdateProfileDto } from './dto/UpdateProfileDto.dto';
 
 @Injectable()
 export class ProfileService {
-  create(createProfileDto: CreateProfileDto) {
-    return 'This action adds a new profile';
+  constructor(private prisma: PrismaClient) {}
+
+  async upload(request: any, files: any) {
+    const data = request.user;
+    const images = [];
+
+    const findId = await this.prisma.profile.findFirst({
+      where:{
+        OR: [{ userId: data.sub }, {email: data.email}]
+      }
+    });
+
+    if (!findId){
+      console.error('Invalid user:', findId);
+      throw new BadRequestException('Invalid Images')
+    }
+
+    for (const i of files){
+      images.push(i.originalname)
+    }
+
+    const picMany = await this.prisma.profile.update({
+      where: { id: findId.id },
+      data: {
+        // images: images
+      },
+      // {new:true}
+    });
+    
+    return picMany
   }
 
-  findAll() {
-    return `This action returns all profile`;
+
+  async findAll(){
+    return await this.prisma.profile.findMany();
   }
 
-  findOne(id: number) {
-    return `This action returns a #${id} profile`;
+  async findOne(request:any){
+    const userId = request.user;
+    const findProfile = await this.prisma.profile.findFirst({
+      where:{
+        userId: userId.sub
+      }
+    })
+
+    return findProfile
   }
 
-  update(id: number, updateProfileDto: UpdateProfileDto) {
-    return `This action updates a #${id} profile`;
-  }
-
-  remove(id: number) {
-    return `This action removes a #${id} profile`;
+  async update(request:any, updateProfileDto: UpdateProfileDto){
+    
   }
 }

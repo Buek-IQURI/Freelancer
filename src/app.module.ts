@@ -13,7 +13,7 @@ import { ProfileModule } from './profile/profile.module';
     AuthModule,
     UserModule,
     PrismaModule,
-    ProfileModule,
+    // ProfileModule,
     
   ],
   controllers: [AppController],

@@ -14,7 +14,6 @@ export class ImageDto {
 export class RegisterDto {
   readonly email: string;
   readonly userId: string;
-  readonly googleId: string;
   readonly username: string;
   readonly password: string;
   readonly roles: string;
@@ -23,6 +22,7 @@ export class RegisterDto {
   readonly avatar: string;
   readonly address: string;
   readonly age: string;
+  images: ImageDto;
 
 //   readonly images:Express.Multer.File;
 

@@ -1,27 +1,28 @@
 import { Controller, Get, Post, Body, Request, Param, Delete, UseGuards } from '@nestjs/common';
 import { UserService } from './user.service';
 
-import { RegisterDto } from './dto/register.dto';
-import { AuthGuard } from '@nestjs/passport';
+import { JwtAuthGuard } from 'src/auth/guard/jwt-auth.guard';
 
+@UseGuards(JwtAuthGuard)
 @Controller('user')
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-
-  @Post('register')
-  async create(@Body() registerDto: RegisterDto) {
-    const response = await this.userService.create(registerDto);
-
-    return response
+  @Get()
+  async getAll(){
+    const result = await this.userService.getUsers()
+    return result
   }
 
-  @UseGuards(AuthGuard('jwt'))
-  @Get('profile')
-  async getProfile(@Request() req){
-    console.log(req.user);
-    
-    const result  = await this.userService.findByEmail(req.user.email)
+  @Get(':id')
+  async getOne(@Param('id') id: string){
+    const result = await this.userService.getUserById(id)
     return result
+  }
+
+  @Delete(':id')
+  async Delete(@Param('id') id:string){
+    const deleteResult = await this.userService.deleteUser(id)
+    return deleteResult
   }
 }

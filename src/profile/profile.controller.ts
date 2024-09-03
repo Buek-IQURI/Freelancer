@@ -1,34 +1,36 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Req, UseInterceptors, UploadedFiles } from '@nestjs/common';
 import { ProfileService } from './profile.service';
-import { CreateProfileDto } from './dto/create-profile.dto';
-import { UpdateProfileDto } from './dto/update-profile.dto';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
+import { UpdateProfileDto } from './dto/UpdateProfileDto.dto';
 
 @Controller('profile')
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
-
-  @Post()
-  create(@Body() createProfileDto: CreateProfileDto) {
-    return this.profileService.create(createProfileDto);
-  }
 
   @Get()
   findAll() {
     return this.profileService.findAll();
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.profileService.findOne(+id);
+  @Get('one')
+  findOne(@Req() request:Request) {
+    return this.profileService.findOne(request);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateProfileDto: UpdateProfileDto) {
-    return this.profileService.update(+id, updateProfileDto);
+
+  @Patch()
+  @UseInterceptors(FileFieldsInterceptor([
+    {name:'avatar'},
+    {name:'images'}
+  ]))
+  update(@Req() request:Request, @Body() updateProfileDto: UpdateProfileDto,@UploadedFiles() files:{avatar?:Express.Multer.File,images?:Express.Multer.File[]}) {
+
+    // return this.profileService.update(request, updateProfileDto,files);
   }
 
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.profileService.remove(+id);
-  }
+  // @Delete()
+  // remove(@Req() request:Request) {
+  //   return this.profileService.(request);
+  // }
+  
 }
