@@ -2,7 +2,7 @@ import { promises } from 'fs';
 
 export async function Folder() {
   promises
-    .mkdir('../images/Tag-Promotion/', { recursive: true })
+    .mkdir('../Images/', { recursive: true })
     .catch((error) => console.log(error));
 }
 
