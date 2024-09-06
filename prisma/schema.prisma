@@ -30,9 +30,9 @@ model Profile {
   lastName         String?  @default("Last Name")
   age              String?  @default("0")
   address          String?  @default("address")
-  avatar           String?
+  avatar           Image?
   email            String?  @default("email you")
-  images           Image?
+  images           Image[]
   roles            String?
   is_active_status Boolean  @default(true)
   createdAt        DateTime @default(now())
@@ -44,5 +44,4 @@ type Image {
   url      String?
   fileName String?
   mimeType String?
-  path     String?
 }

@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { RegisterDto } from 'src/user/dto/register.dto';
+import { ImageDto, RegisterDto } from 'src/user/dto/register.dto';
 
 import { LogInDto } from 'src/user/dto/login.dto';
 
@@ -38,8 +38,6 @@ export class AuthService {
       age,
       lastName,
     } = registerDto;
-    // console.log(registerDto);
-    // console.log(file);
 
     const hashPassword = await bcrypt.hash(password, 10);
 
@@ -51,7 +49,27 @@ export class AuthService {
       throw new BadRequestException('Email Or User Name Ready exist');
     }
 
-    const uploadResult = file ? await this.cloudinaryService.uploadImage(file) : null;
+    let imageData
+    let avatar: ImageDto
+
+    if (file) {
+      imageData = file ? await this.cloudinaryService.uploadImage(file) : null;
+      
+      
+      avatar = {
+        url: imageData.url,
+        fileName: imageData.display_name,
+        mimeType: imageData.format
+      }
+    }
+
+    
+
+    const defaultImage: ImageDto = {
+      url:'default.png',
+      fileName:'default_file_name',
+      mimeType:'png',
+    }
 
 
     const user = await this.prisma.user.create({
@@ -67,7 +85,8 @@ export class AuthService {
         userId: user.id,
         firstName,
         lastName,
-        avatar: uploadResult?.secure_url  ? uploadResult?.secure_url : undefined,
+        avatar: avatar || defaultImage,
+        images: [defaultImage],
         age,
         roles,
         address,
@@ -150,6 +169,8 @@ export class AuthService {
 
   async ChangePassword(request:any, passwordDto: PasswordDto){
     const {sub} = request.user;
+
+    
     const passChange = await this.prisma.user.findFirst({where:{id: sub}});
 
     if(!passChange) {

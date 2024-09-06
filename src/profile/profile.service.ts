@@ -1,58 +1,113 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { PrismaClient } from '@prisma/client';
 import { UpdateProfileDto } from './dto/UpdateProfileDto.dto';
+import { JwtService } from '@nestjs/jwt';
+import { CloudinaryService } from 'src/middleware/cloudinary/cloudinary.service';
+import { ConfigService } from '@nestjs/config';
+import { ImageDto } from 'src/user/dto/register.dto';
+import { PrismaService } from 'src/prisma/prisma.service';
 
 @Injectable()
 export class ProfileService {
-  constructor(private prisma: PrismaClient) {}
+  constructor(
+    private prisma: PrismaService,
+    // private jwtService: JwtService,
+    // private configService: ConfigService,
+    private cloudinaryService: CloudinaryService,
+  ) {}
 
-  async upload(request: any, files: any) {
+  async update(request: any, updateProfileDto: UpdateProfileDto, files: any) {
     const data = request.user;
     const images = [];
 
+    
+
+    const { firstName, lastName, address, roles, age } = updateProfileDto;
+
     const findId = await this.prisma.profile.findFirst({
-      where:{
-        OR: [{ userId: data.sub }, {email: data.email}]
-      }
+      where: {
+        OR: [{ userId: data.sub }, { email: data.email }],
+      },
     });
 
-    if (!findId){
+    if (!findId) {
       console.error('Invalid user:', findId);
-      throw new BadRequestException('Invalid Images')
+      throw new BadRequestException('Invalid user');
+    }
+    console.log(files.avatar);
+    
+    console.log(files.avatar.length > 1);
+    if (files.avatar.length > 1) {
+      return { message: "Avatar file detected" };
+    }
+    
+    let imageAvatar: ImageDto | null = null;
+
+    if (files) {
+      if (files.images) {
+        for (const i of files.images) {
+          const imageData = await this.cloudinaryService.uploadImage(i);
+          const imageInfo: ImageDto  = {
+            url: imageData.url,
+            fileName: imageData.display_name,
+            mimeType: imageData.format,
+          };
+          images.push(imageInfo);
+        }
+      
+      }
+
+      if (files.avatar) {
+        for(const avatarFiles of  files.avatar){
+          const avatarData  = files.avatar? await this.cloudinaryService.uploadImage(avatarFiles): null;
+          imageAvatar = {
+            url: avatarData.url,
+            fileName: avatarData.display_name,
+            mimeType: avatarData.format,
+          };
+          break;
+        }
+      }
     }
 
-    for (const i of files){
-      images.push(i.originalname)
+    const defaultImage: ImageDto = {
+      url:'default.png',
+      fileName:'default_file_name',
+      mimeType:'png',
     }
-
-    const picMany = await this.prisma.profile.update({
+    
+    const updatedProfile  = await this.prisma.profile.update({
       where: { id: findId.id },
       data: {
-        // images: images
+        firstName,
+        lastName,
+        address,
+        roles,
+        age,
+        images: images || [defaultImage],
+        avatar: imageAvatar || defaultImage,
       },
       // {new:true}
     });
-    
-    return picMany
+
+    return updatedProfile
   }
 
-
-  async findAll(){
+  async findAll() {
     return await this.prisma.profile.findMany();
   }
 
-  async findOne(request:any){
+  async findOne(request: any) {
     const userId = request.user;
     const findProfile = await this.prisma.profile.findFirst({
-      where:{
-        userId: userId.sub
-      }
-    })
+      where: {
+        userId: userId.sub,
+      },
+    });
 
-    return findProfile
+    return findProfile;
   }
 
-  async update(request:any, updateProfileDto: UpdateProfileDto){
-    
-  }
+  // async update(request:any, updateProfileDto: UpdateProfileDto){
+
+  // }
 }

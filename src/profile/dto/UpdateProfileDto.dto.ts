@@ -1,5 +1,12 @@
 
-import { IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsNumber, IsOptional, IsString } from 'class-validator';
+
+enum UserRole {
+    USER = 'user',
+    ADMIN = 'admin',
+    FreeLance = 'freelance'
+    // add other roles as needed
+  }
 
 
 export class UpdateProfileDto {
@@ -17,6 +24,9 @@ export class UpdateProfileDto {
     @IsOptional()
     @IsString()
     age:string
+
+    @IsEnum(UserRole)
+    roles:UserRole
     
     @IsOptional()
     @IsString()

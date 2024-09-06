@@ -1,31 +1,35 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Req, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Req, UseInterceptors, UploadedFiles, UseGuards, Put } from '@nestjs/common';
 import { ProfileService } from './profile.service';
 import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UpdateProfileDto } from './dto/UpdateProfileDto.dto';
+import { JwtAuthGuard } from 'src/auth/guard/jwt-auth.guard';
 
-@Controller('profile')
+@Controller('profiles')
 export class ProfileController {
   constructor(private readonly profileService: ProfileService) {}
 
+  @UseGuards(JwtAuthGuard)
   @Get()
   findAll() {
     return this.profileService.findAll();
   }
 
+  @UseGuards(JwtAuthGuard)
   @Get('one')
   findOne(@Req() request:Request) {
     return this.profileService.findOne(request);
   }
 
 
-  @Patch()
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('update')
   @UseInterceptors(FileFieldsInterceptor([
     {name:'avatar'},
     {name:'images'}
   ]))
-  update(@Req() request:Request, @Body() updateProfileDto: UpdateProfileDto,@UploadedFiles() files:{avatar?:Express.Multer.File,images?:Express.Multer.File[]}) {
-
-    // return this.profileService.update(request, updateProfileDto,files);
+  async update(@Req() request:Request, @Body() updateProfileDto: UpdateProfileDto,@UploadedFiles() files:{avatar?:Express.Multer.File,images?:Express.Multer.File[]}) {
+    return await this.profileService.update(request, updateProfileDto,files);
   }
 
   // @Delete()

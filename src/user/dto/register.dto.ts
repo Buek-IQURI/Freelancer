@@ -8,7 +8,7 @@ export class ImageDto {
   
     mimeType: string;
   
-    path: string;
+    // path: string;
   }
 
 export class RegisterDto {
